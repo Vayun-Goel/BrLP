@@ -103,31 +103,10 @@ def infer():
         transforms.ScaleIntensityD(minv=0, maxv=1, keys=['image'])
     ])
 
-    all_past_latents = []
-    all_past_ages = []
-
-    console.print("🔄 [bold blue]Encoding past brain images into latent space...")
-    for input_row in input_df.itertuples():
-        image_path = input_row.image_path
-        age = input_row.age
-
-        # Load and transform the image
-        image_dict = { 'image_path': image_path }
-        input_image = load_volume_tensor(image_dict)['image']
-        input_image = input_image.unsqueeze(0).to(device)
-
-        # Encode the image to latent
-        with torch.no_grad():
-            latent = autoencoder.encode(input_image)[0]  # shape: (C, H, W, D)
-            latent = transforms.DivisiblePad(k=4, mode='constant')(latent.squeeze(0))  # remove batch dim
-
-        all_past_latents.append(latent.float())
-        all_past_ages.append(age/100)
-
-    # input_image = load_volume_tensor({ 'image_path': last_record.image_path })['image']
-    # input_image = input_image.unsqueeze(0).to(device)
-    # input_latent = autoencoder.encode(input_image)[0]
-    # input_latent = transforms.DivisiblePad(k=4, mode='constant')(input_latent.squeeze(0))
+    input_image = load_volume_tensor({ 'image_path': last_record.image_path })['image']
+    input_image = input_image.unsqueeze(0).to(device)
+    input_latent = autoencoder.encode(input_image)[0]
+    input_latent = transforms.DivisiblePad(k=4, mode='constant')(input_latent.squeeze(0))
 
 
     with console.status("[bold green]Predicting future brain MRIs") as status:
@@ -150,8 +129,8 @@ def infer():
                 autoencoder=autoencoder, 
                 diffusion=diffusion, 
                 controlnet=controlnet, 
-                starting_z_all=all_past_latents, 
-                starting_a_all=all_past_ages, 
+                starting_z=input_latent.float(), 
+                starting_a=last_record.age / 100, 
                 context=covariates.float(), 
                 device=device, 
                 scale_factor=1,

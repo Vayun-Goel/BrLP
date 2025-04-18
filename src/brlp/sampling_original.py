@@ -89,8 +89,8 @@ def sample_using_controlnet_and_z(
     autoencoder: nn.Module, 
     diffusion: nn.Module,
     controlnet: nn.Module,
-    starting_z_all: torch.Tensor,
-    starting_a_all: int, 
+    starting_z: torch.Tensor,
+    starting_a: int, 
     context: torch.Tensor, 
     device: str,
     scale_factor: int = 1,
@@ -109,8 +109,8 @@ def sample_using_controlnet_and_z(
         autoencoder (nn.Module): the KL autoencoder
         diffusion (nn.Module): the UNet 
         controlnet (nn.Module): the ControlNet
-        starting_z_all (list of torch.Tensor): the latent from the MRI of the starting visit (for all past scans)
-        starting_a_all (list of int): the starting ages (for all past scans)
+        starting_z (torch.Tensor): the latent from the MRI of the starting visit 
+        starting_a (int): the starting age
         context (torch.Tensor): the covariates
         device (str): the device ('cuda' or 'cpu')
         scale_factor (int, optional): the scale factor (see Rombach et Al, 2021). Defaults to 1.
@@ -135,33 +135,27 @@ def sample_using_controlnet_and_z(
                               clip_sample=False)
 
     scheduler.set_timesteps(num_inference_steps=num_inference_steps)
-
-    controlnet_condition_all = []
     
-    for i in range(len(starting_z_all)):
-        # preparing controlnet spatial condition.
-        starting_z             = starting_z_all[i].unsqueeze(0).to(device)
-        concatenating_age      = torch.tensor([ starting_a_all[i] ]).view(1, 1, 1, 1, 1).expand(1, 1, *starting_z.shape[-3:]).to(device)
-        controlnet_condition   = torch.cat([ starting_z, concatenating_age ], dim=1).to(device)
-        controlnet_condition_all.append(controlnet_condition)
+    # preparing controlnet spatial condition.
+    starting_z             = starting_z.unsqueeze(0).to(device)
+    concatenating_age      = torch.tensor([ starting_a ]).view(1, 1, 1, 1, 1).expand(1, 1, *starting_z.shape[-3:]).to(device)
+    controlnet_condition   = torch.cat([ starting_z, concatenating_age ], dim=1).to(device)
 
     # the subject-specific variables and the progression-related 
     # covariates are concatenated into a vector outside this function. 
     context = context.unsqueeze(0).unsqueeze(0).to(device)
 
+    # if performing LAS, we repeat the inputs for the diffusion process
+    # m times (as specified in the paper) and perform the reverse diffusion
+    # process in parallel to avoid overheads.
     if average_over_n > 1:
-        context = context.repeat(average_over_n, 1, 1)
-
-    for i in range(len(controlnet_condition_all)):
-        # if performing LAS, we repeat the inputs for the diffusion process
-        # m times (as specified in the paper) and perform the reverse diffusion
-        # process in parallel to avoid overheads.
-        controlnet_condition_all[i]  = controlnet_condition_all[i].repeat(average_over_n, 1, 1, 1, 1) 
+        context               = context.repeat(average_over_n, 1, 1)
+        controlnet_condition  = controlnet_condition.repeat(average_over_n, 1, 1, 1, 1) 
     
     # this is z_T - the starting noise.
-    # z = torch.randn(average_over_n, *starting_z_all[0].shape[1:]).to(device)
-    z = torch.randn(average_over_n, *starting_z.shape[1:]).to(device) 
-    z += (starting_z/ 2.0)
+    z = torch.randn(average_over_n, *starting_z.shape[1:]).to(device)
+    # z = torch.randn(average_over_n, *starting_z.shape[1:]).to(device) 
+    # z += (starting_z/ 2.0)
 
     progress_bar = tqdm(scheduler.timesteps) if verbose else scheduler.timesteps
 

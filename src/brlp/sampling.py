@@ -89,8 +89,8 @@ def sample_using_controlnet_and_z(
     autoencoder: nn.Module, 
     diffusion: nn.Module,
     controlnet: nn.Module,
-    starting_z: torch.Tensor,
-    starting_a: int, 
+    starting_z_all: torch.Tensor,
+    starting_a_all: int, 
     context: torch.Tensor, 
     device: str,
     scale_factor: int = 1,
@@ -109,8 +109,8 @@ def sample_using_controlnet_and_z(
         autoencoder (nn.Module): the KL autoencoder
         diffusion (nn.Module): the UNet 
         controlnet (nn.Module): the ControlNet
-        starting_z (torch.Tensor): the latent from the MRI of the starting visit 
-        starting_a (int): the starting age
+        starting_z_all (list of torch.Tensor): the latent from the MRI of the starting visit (for all past scans)
+        starting_a_all (list of int): the starting ages (for all past scans)
         context (torch.Tensor): the covariates
         device (str): the device ('cuda' or 'cpu')
         scale_factor (int, optional): the scale factor (see Rombach et Al, 2021). Defaults to 1.
@@ -135,27 +135,45 @@ def sample_using_controlnet_and_z(
                               clip_sample=False)
 
     scheduler.set_timesteps(num_inference_steps=num_inference_steps)
+
+    controlnet_condition_all = []
     
-    # preparing controlnet spatial condition.
-    starting_z             = starting_z.unsqueeze(0).to(device)
-    concatenating_age      = torch.tensor([ starting_a ]).view(1, 1, 1, 1, 1).expand(1, 1, *starting_z.shape[-3:]).to(device)
-    controlnet_condition   = torch.cat([ starting_z, concatenating_age ], dim=1).to(device)
+    for i in range(len(starting_z_all)):
+        # preparing controlnet spatial condition.
+        starting_z             = starting_z_all[i].unsqueeze(0).to(device)
+        concatenating_age      = torch.tensor([ starting_a_all[i] ]).view(1, 1, 1, 1, 1).expand(1, 1, *starting_z.shape[-3:]).to(device)
+        controlnet_condition   = torch.cat([ starting_z, concatenating_age ], dim=1).to(device)
+        controlnet_condition_all.append(controlnet_condition)
+        print(f"strating z at {i} :{starting_z_all[i].shape}")
+        print(f"strating controlnet_condition at {i} :{controlnet_condition_all[i].shape}")
+        
 
     # the subject-specific variables and the progression-related 
     # covariates are concatenated into a vector outside this function. 
     context = context.unsqueeze(0).unsqueeze(0).to(device)
 
-    # if performing LAS, we repeat the inputs for the diffusion process
-    # m times (as specified in the paper) and perform the reverse diffusion
-    # process in parallel to avoid overheads.
     if average_over_n > 1:
-        context               = context.repeat(average_over_n, 1, 1)
-        controlnet_condition  = controlnet_condition.repeat(average_over_n, 1, 1, 1, 1) 
+        context = context.repeat(average_over_n, 1, 1)
+
+    for i in range(len(controlnet_condition_all)):
+        # if performing LAS, we repeat the inputs for the diffusion process
+        # m times (as specified in the paper) and perform the reverse diffusion
+        # process in parallel to avoid overheads.
+        controlnet_condition_all[i]  = controlnet_condition_all[i].repeat(average_over_n, 1, 1, 1, 1) 
+        print(f"strating controlnet_condition at {i} :{controlnet_condition_all[i].shape}")
+
+    print(f"controlnet condition length: {len(controlnet_condition_all)}")
+    # print(f"controlnet condition shape of each: {controlnet_condition_all[0].shape}")
     
     # this is z_T - the starting noise.
-    z = torch.randn(average_over_n, *starting_z.shape[1:]).to(device)
-    # z = torch.randn(average_over_n, *starting_z.shape[1:]).to(device) 
-    # z += (starting_z/ 2.0)
+    z = torch.randn(average_over_n, *starting_z_all[0].shape).to(device)
+    print(f"Z shape: {z.shape}")
+    z_original_norm = z.view(-1).norm()
+    # z = torch.randn(average_over_n, *starting_z_all[-1].shape[1:]).to(device) 
+    z += (starting_z_all[-1].unsqueeze(0))
+    z = z / z.view(-1).norm()
+    z = z * z_original_norm
+
 
     progress_bar = tqdm(scheduler.timesteps) if verbose else scheduler.timesteps
 
@@ -168,24 +186,42 @@ def sample_using_controlnet_and_z(
 
                 # get the intermediate features from the ControlNet
                 # by feeding the starting latent, the covariates and the timestep
-                down_h, mid_h = controlnet(
-                    x=z.float(), 
-                    timesteps=timestep, 
-                    context=context,
-                    controlnet_cond=controlnet_condition.float()
-                )
+                prev_noise_step = -1
+                # z_same = z.clone()
 
-                # the diffusion takes the intermediate features and predicts
-                # the noise. This is why we conceptualize the two networks as
-                # as a unified network.
-                noise_pred = diffusion(
-                    x=z.float(), 
-                    timesteps=timestep, 
-                    context=context.float(), 
-                    down_block_additional_residuals=down_h,
-                    mid_block_additional_residual=mid_h
-                )
+                for j in range(len(controlnet_condition_all)):
+                    down_h, mid_h = controlnet(
+                        x=z.float(), 
+                        timesteps=timestep, 
+                        context=context,
+                        controlnet_cond=controlnet_condition_all[j].float()
+                    )
+                    # print(f"efdaHJEwlfhkv;cekJFK;eribgjlakejlfbgjaerbfljkaeb;gkaer: {z.shape}")
 
+                    # the diffusion takes the intermediate features and predicts
+                    # the noise. This is why we conceptualize the two networks as
+                    # as a unified network.
+                    noise_pred = diffusion(
+                        x=z.float(), 
+                        timesteps=timestep, 
+                        context=context.float(), 
+                        down_block_additional_residuals=down_h,
+                        mid_block_additional_residual=mid_h
+                    )
+
+                    if(j == 0):
+                        prev_noise_step = noise_pred
+                    else:
+                        updated_curr_tensor = noise_pred.clone()
+                        updated_curr_tensor_norm = updated_curr_tensor.view(-1).norm()
+                        temp_latent = torch.abs(noise_pred - prev_noise_step)
+                        temp_latent = temp_latent / (temp_latent.view(-1).norm() + 1e-8)  # norm over all dims
+
+                        updated_curr_tensor += (((temp_latent * noise_pred) / ((starting_a_all[j] - starting_a_all[j-1])*1.0))*(j/(j+1)))
+                        updated_curr_tensor = (updated_curr_tensor  / (updated_curr_tensor.view(-1).norm() + 1e-8)) * updated_curr_tensor_norm
+                        prev_noise_step = updated_curr_tensor
+
+                noise_pred = prev_noise_step
                 # the scheduler applies the formula to get the 
                 # denoised step z_{t-1} from z_t and the predicted noise
                 z, _ = scheduler.step(noise_pred, t, z)
