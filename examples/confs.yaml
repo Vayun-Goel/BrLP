@@ -3,25 +3,25 @@
 #
 # Path to the trained autoencoder checkpoints
 #
-autoencoder: '/home/vayub/BrLP/pretrained_weights/autoencoder.pth'
+autoencoder: 'None'
 
 #
 # Path to the trained UNet checkpoints
 #
-unet: '/home/vayub/BrLP/pretrained_weights/latentdiffusion.pth'
+unet: 'None'
 
 #
 # Path to the trained ControlNet checkpoints
 #
-controlnet: '/home/vayub/BrLP/pretrained_weights/controlnet.pth'
+controlnet: 'None'
 
 #
 # Path to the trained auxiliary models
 #
 aux:
-  cn:  "/home/vayub/BrLP/pretrained_weights/dcm-aux/dcm_nc.json"
-  mci: "/home/vayub/BrLP/pretrained_weights/dcm-aux/dcm_mci.json"
-  ad:  "/home/vayub/BrLP/pretrained_weights/dcm-aux/dcm_ad.json"
+  cn:  "dcm-aux/dcm_nc.json"
+  mci: "dcm-aux/dcm_mci.json"
+  ad:  "dcm-aux/dcm_ad.json"
 
 #
 # Latent Average Stabilization parameters

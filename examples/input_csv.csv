@@ -1,4 +1,4 @@
 subject_id,image_uid,age,sex,image_path,segm_path
-training01,training01_01,65,1,/home/vayub/BrLP/output_turboprep/training01_01_t2/normalized.nii.gz,/home/vayub/BrLP/output_turboprep/training01_01_t2/segm.nii.gz
-training01,training01_02,68,1,/home/vayub/BrLP/output_turboprep/training01_02_t2/normalized.nii.gz,/home/vayub/BrLP/output_turboprep/training01_02_t2/segm.nii.gz
-training01,training01_03,70,1,/home/vayub/BrLP/output_turboprep/training01_02_t2/normalized.nii.gz,/home/vayub/BrLP/output_turboprep/training01_03_t2/segm.nii.gz
+training01,training01_01,65,1,Patient-001_week-000-1_reg/normalized.nii.gz,Patient-001_week-000-1_reg/segm.nii.gz
+training01,training01_02,68,1,Patient-001_week-044_reg/normalized.nii.gz,Patient-001_week-044_reg/segm.nii.gz
+training01,training01_03,70,1,Patient-001_week-056_reg/normalized.nii.gz,Patient-001_week-056_reg/segm.nii.gz
