@@ -38,7 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers',    default=8,     type=int)
     parser.add_argument('--n_epochs',       default=5,     type=int)
     parser.add_argument('--max_batch_size', default=2,     type=int)
-    parser.add_argument('--batch_size',     default=16,    type=int)
+    parser.add_argument('--batch_size',     default=8,    type=int)
     parser.add_argument('--lr',             default=1e-4,  type=float)
     parser.add_argument('--aug_p',          default=0.8,   type=float)
     args = parser.parse_args()
