@@ -1,0 +1,24 @@
+for training original:
+starting_z.shape: torch.Size([16, 3, 16, 20, 16]), starting_a.shape: torch.Size([16])
+followup_z.shape: torch.Size([16, 3, 16, 20, 16]), context.shape: torch.Size([16, 1, 8])
+controlnet_condition.shape: torch.Size([16, 4, 16, 20, 16])  
+
+for inference: 
+Encoding at age 70...
+strating z at 0 :torch.Size([3, 16, 20, 16])
+strating controlnet_condition at 0 :torch.Size([1, 4, 16, 20, 16])
+strating z at 1 :torch.Size([3, 16, 20, 16])
+strating controlnet_condition at 1 :torch.Size([1, 4, 16, 20, 16])
+strating z at 2 :torch.Size([3, 16, 20, 16])
+strating controlnet_condition at 2 :torch.Size([1, 4, 16, 20, 16])
+strating controlnet_condition at 0 :torch.Size([10, 4, 16, 20, 16])
+strating controlnet_condition at 1 :torch.Size([10, 4, 16, 20, 16])
+strating controlnet_condition at 2 :torch.Size([10, 4, 16, 20, 16])
+controlnet condition length: 3
+Z shape: torch.Size([10, 3, 16, 20, 16])
+shape of z :torch.Size([10, 3, 16, 20, 16])
+
+for training ours: 
+follow_z.shape: torch.Size([2, 3, 16, 20, 16]), context.shape: torch.Size([2, 1, 8])
+zs_all.shape: torch.Size([2, 16, 3, 16, 20, 16]), a_all.shape: torch.Size([2, 16])
+noised tensor:torch.Size([2, 3, 16, 20, 16])
